@@ -3,11 +3,22 @@
 
 NODE_ENV=development
 
-# For future OAuth integration (not needed for basic math tool)
+# For future OAuth integration (not needed for basic tools)
 # GITHUB_CLIENT_ID=your_github_client_id
 # GITHUB_CLIENT_SECRET=your_github_client_secret
 # COOKIE_ENCRYPTION_KEY=your_random_encryption_key
 
-# For future shopping API integrations
-# SHOPPING_API_KEY=your_shopping_api_key
-# SHOPPING_API_URL=https://api.example.com
+# Shopping API integrations
+# Rami Levy API credentials (rami-levy.co.il)
+RAMI_LEVY_API_KEY=your_rami_levy_bearer_token
+ECOM_TOKEN=your_ecom_token
+COOKIE=your_cookie_string
+
+# Amazon API credentials (commented out)
+# AMAZON_API_KEY=your_amazon_api_key
+# AMAZON_CLIENT_ID=your_amazon_client_id
+# AMAZON_CLIENT_SECRET=your_amazon_client_secret
+
+# Shopify API credentials (commented out)
+# SHOPIFY_ACCESS_TOKEN=your_shopify_access_token
+# SHOPIFY_API_KEY=your_shopify_api_key

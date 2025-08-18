@@ -1,0 +1,206 @@
+import { BaseShoppingAdapter } from "./base-adapter";
+import {
+  ProductSearchOptions,
+  ProductSearchResult,
+  CartItem,
+  Cart,
+  ShoppingOperationResult,
+  WebsiteConfig,
+  WebsiteCredentials,
+} from "../types";
+import { ApiClient } from "../../../utils/api-client";
+
+/**
+ * Amazon shopping adapter implementation
+ * NOTE: This is a mock implementation for demonstration purposes
+ * Real implementation would use Amazon's Product Advertising API
+ */
+export class AmazonAdapter extends BaseShoppingAdapter {
+  private apiClient: ApiClient;
+
+  constructor(credentials?: WebsiteCredentials) {
+    const config: WebsiteConfig = {
+      name: "Amazon",
+      baseUrl: "https://api.example-amazon.com/v1", // Mock API endpoint
+      apiVersion: "v1",
+      rateLimitPerMinute: 100,
+      requiresAuth: true,
+      authType: "api_key",
+    };
+
+    super("amazon", config, credentials);
+
+    if (!this.validateConfig()) {
+      throw new Error("Amazon adapter requires API key credentials");
+    }
+
+    // Initialize API client with authentication headers
+    const headers: Record<string, string> = {};
+    if (credentials?.apiKey) {
+      headers['Authorization'] = `Bearer ${credentials.apiKey}`;
+    }
+
+    this.apiClient = new ApiClient(config.baseUrl, headers);
+  }
+
+  async searchProducts(
+    options: ProductSearchOptions
+  ): Promise<ShoppingOperationResult<ProductSearchResult>> {
+    try {
+      // Mock implementation - in reality would call Amazon Product API
+      console.log(`[Amazon] Searching for: "${options.query}"`);
+      
+      // Simulate API call
+      const mockResponse = {
+        products: [
+          {
+            id: "amazon-001",
+            title: `Amazon Product for "${options.query}"`,
+            description: `High-quality product matching your search for ${options.query}`,
+            price: 29.99,
+            currency: "USD",
+            imageUrl: "https://images-na.ssl-images-amazon.com/images/I/mock.jpg",
+            availability: true,
+            rating: 4.5,
+            reviewCount: 1250,
+            category: options.category || "General",
+            brand: "Amazon Brand",
+            url: "https://amazon.com/dp/mock-product",
+          },
+        ],
+        totalCount: 1,
+        hasMore: false,
+      };
+
+      // Sanitize the response
+      const sanitizedProducts = mockResponse.products.map(product => 
+        this.sanitizeProduct(product)
+      );
+
+      const result: ProductSearchResult = {
+        products: sanitizedProducts,
+        totalCount: mockResponse.totalCount,
+        hasMore: mockResponse.hasMore,
+      };
+
+      return this.createSuccessResult(result);
+    } catch (error) {
+      console.error("[Amazon] Search error:", error);
+      return this.createErrorResult(
+        `Failed to search products on Amazon: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
+    }
+  }
+
+  async addToCart(
+    productId: string,
+    quantity: number,
+    variant?: string
+  ): Promise<ShoppingOperationResult<CartItem>> {
+    try {
+      console.log(`[Amazon] Adding to cart: ${productId}, qty: ${quantity}`);
+      
+      // Mock implementation
+      const mockCartItem: CartItem = {
+        id: `cart-${Date.now()}`,
+        productId: productId,
+        productTitle: "Mock Amazon Product",
+        quantity: quantity,
+        unitPrice: 29.99,
+        totalPrice: 29.99 * quantity,
+        variant: variant,
+        imageUrl: "https://images-na.ssl-images-amazon.com/images/I/mock.jpg",
+      };
+
+      return this.createSuccessResult(mockCartItem);
+    } catch (error) {
+      console.error("[Amazon] Add to cart error:", error);
+      return this.createErrorResult(
+        `Failed to add product to Amazon cart: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
+    }
+  }
+
+  async removeFromCart(
+    cartItemId: string
+  ): Promise<ShoppingOperationResult<boolean>> {
+    try {
+      console.log(`[Amazon] Removing from cart: ${cartItemId}`);
+      
+      // Mock implementation
+      return this.createSuccessResult(true);
+    } catch (error) {
+      console.error("[Amazon] Remove from cart error:", error);
+      return this.createErrorResult(
+        `Failed to remove item from Amazon cart: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
+    }
+  }
+
+  async updateCartQuantity(
+    cartItemId: string,
+    quantity: number
+  ): Promise<ShoppingOperationResult<CartItem>> {
+    try {
+      console.log(`[Amazon] Updating cart quantity: ${cartItemId}, new qty: ${quantity}`);
+      
+      // Mock implementation
+      const mockCartItem: CartItem = {
+        id: cartItemId,
+        productId: "amazon-001",
+        productTitle: "Mock Amazon Product",
+        quantity: quantity,
+        unitPrice: 29.99,
+        totalPrice: 29.99 * quantity,
+        imageUrl: "https://images-na.ssl-images-amazon.com/images/I/mock.jpg",
+      };
+
+      return this.createSuccessResult(mockCartItem);
+    } catch (error) {
+      console.error("[Amazon] Update cart quantity error:", error);
+      return this.createErrorResult(
+        `Failed to update Amazon cart quantity: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
+    }
+  }
+
+  async getCartContents(): Promise<ShoppingOperationResult<Cart>> {
+    try {
+      console.log(`[Amazon] Getting cart contents`);
+      
+      // Mock implementation
+      const mockCart: Cart = {
+        items: [
+          {
+            id: "cart-001",
+            productId: "amazon-001",
+            productTitle: "Mock Amazon Product 1",
+            quantity: 2,
+            unitPrice: 29.99,
+            totalPrice: 59.98,
+            imageUrl: "https://images-na.ssl-images-amazon.com/images/I/mock1.jpg",
+          },
+          {
+            id: "cart-002",
+            productId: "amazon-002",
+            productTitle: "Mock Amazon Product 2",
+            quantity: 1,
+            unitPrice: 45.00,
+            totalPrice: 45.00,
+            imageUrl: "https://images-na.ssl-images-amazon.com/images/I/mock2.jpg",
+          },
+        ],
+        totalItems: 3,
+        totalPrice: 104.98,
+        currency: "USD",
+      };
+
+      return this.createSuccessResult(mockCart);
+    } catch (error) {
+      console.error("[Amazon] Get cart contents error:", error);
+      return this.createErrorResult(
+        `Failed to get Amazon cart contents: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
+    }
+  }
+}

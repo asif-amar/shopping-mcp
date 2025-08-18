@@ -1,0 +1,220 @@
+import { BaseShoppingAdapter } from "./base-adapter";
+import {
+  ProductSearchOptions,
+  ProductSearchResult,
+  CartItem,
+  Cart,
+  ShoppingOperationResult,
+  WebsiteConfig,
+  WebsiteCredentials,
+} from "../types";
+import { ApiClient } from "../../../utils/api-client";
+
+/**
+ * Shopify shopping adapter implementation
+ * NOTE: This is a mock implementation for demonstration purposes
+ * Real implementation would use Shopify's Storefront API or Admin API
+ */
+export class ShopifyAdapter extends BaseShoppingAdapter {
+  private apiClient: ApiClient;
+
+  constructor(credentials?: WebsiteCredentials) {
+    const config: WebsiteConfig = {
+      name: "Shopify",
+      baseUrl: "https://api.example-shopify.com/v1", // Mock API endpoint
+      apiVersion: "2023-10",
+      rateLimitPerMinute: 80,
+      requiresAuth: true,
+      authType: "oauth",
+    };
+
+    super("shopify", config, credentials);
+
+    if (!this.validateConfig()) {
+      throw new Error("Shopify adapter requires access token credentials");
+    }
+
+    // Initialize API client with authentication headers
+    const headers: Record<string, string> = {};
+    if (credentials?.accessToken) {
+      headers['Authorization'] = `Bearer ${credentials.accessToken}`;
+    }
+
+    this.apiClient = new ApiClient(config.baseUrl, headers);
+  }
+
+  async searchProducts(
+    options: ProductSearchOptions
+  ): Promise<ShoppingOperationResult<ProductSearchResult>> {
+    try {
+      console.log(`[Shopify] Searching for: "${options.query}"`);
+      
+      // Mock implementation - in reality would call Shopify Storefront API
+      const mockResponse = {
+        products: [
+          {
+            id: "shopify-gid://shopify/Product/001",
+            title: `Shopify Product for "${options.query}"`,
+            description: `Premium quality product matching your search for ${options.query}`,
+            price: 39.99,
+            currency: "USD",
+            imageUrl: "https://cdn.shopify.com/s/files/1/mock.jpg",
+            availability: true,
+            rating: 4.7,
+            reviewCount: 890,
+            category: options.category || "Featured",
+            brand: "Shopify Store",
+            url: "https://store.example.com/products/mock-product",
+          },
+          {
+            id: "shopify-gid://shopify/Product/002",
+            title: `Another Shopify Product for "${options.query}"`,
+            description: `Alternative option for ${options.query} with great reviews`,
+            price: 24.99,
+            currency: "USD",
+            imageUrl: "https://cdn.shopify.com/s/files/1/mock2.jpg",
+            availability: true,
+            rating: 4.3,
+            reviewCount: 456,
+            category: options.category || "Featured",
+            brand: "Shopify Store",
+            url: "https://store.example.com/products/mock-product-2",
+          },
+        ],
+        totalCount: 2,
+        hasMore: false,
+      };
+
+      // Sanitize the response
+      const sanitizedProducts = mockResponse.products.map(product => 
+        this.sanitizeProduct(product)
+      );
+
+      const result: ProductSearchResult = {
+        products: sanitizedProducts,
+        totalCount: mockResponse.totalCount,
+        hasMore: mockResponse.hasMore,
+      };
+
+      return this.createSuccessResult(result);
+    } catch (error) {
+      console.error("[Shopify] Search error:", error);
+      return this.createErrorResult(
+        `Failed to search products on Shopify: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
+    }
+  }
+
+  async addToCart(
+    productId: string,
+    quantity: number,
+    variant?: string
+  ): Promise<ShoppingOperationResult<CartItem>> {
+    try {
+      console.log(`[Shopify] Adding to cart: ${productId}, qty: ${quantity}`);
+      
+      // Mock implementation - in reality would use Shopify Cart API
+      const mockCartItem: CartItem = {
+        id: `shopify-cart-${Date.now()}`,
+        productId: productId,
+        productTitle: "Mock Shopify Product",
+        quantity: quantity,
+        unitPrice: 39.99,
+        totalPrice: 39.99 * quantity,
+        variant: variant,
+        imageUrl: "https://cdn.shopify.com/s/files/1/mock.jpg",
+      };
+
+      return this.createSuccessResult(mockCartItem);
+    } catch (error) {
+      console.error("[Shopify] Add to cart error:", error);
+      return this.createErrorResult(
+        `Failed to add product to Shopify cart: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
+    }
+  }
+
+  async removeFromCart(
+    cartItemId: string
+  ): Promise<ShoppingOperationResult<boolean>> {
+    try {
+      console.log(`[Shopify] Removing from cart: ${cartItemId}`);
+      
+      // Mock implementation
+      return this.createSuccessResult(true);
+    } catch (error) {
+      console.error("[Shopify] Remove from cart error:", error);
+      return this.createErrorResult(
+        `Failed to remove item from Shopify cart: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
+    }
+  }
+
+  async updateCartQuantity(
+    cartItemId: string,
+    quantity: number
+  ): Promise<ShoppingOperationResult<CartItem>> {
+    try {
+      console.log(`[Shopify] Updating cart quantity: ${cartItemId}, new qty: ${quantity}`);
+      
+      // Mock implementation
+      const mockCartItem: CartItem = {
+        id: cartItemId,
+        productId: "shopify-gid://shopify/Product/001",
+        productTitle: "Mock Shopify Product",
+        quantity: quantity,
+        unitPrice: 39.99,
+        totalPrice: 39.99 * quantity,
+        imageUrl: "https://cdn.shopify.com/s/files/1/mock.jpg",
+      };
+
+      return this.createSuccessResult(mockCartItem);
+    } catch (error) {
+      console.error("[Shopify] Update cart quantity error:", error);
+      return this.createErrorResult(
+        `Failed to update Shopify cart quantity: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
+    }
+  }
+
+  async getCartContents(): Promise<ShoppingOperationResult<Cart>> {
+    try {
+      console.log(`[Shopify] Getting cart contents`);
+      
+      // Mock implementation - in reality would use Shopify Cart API
+      const mockCart: Cart = {
+        items: [
+          {
+            id: "shopify-cart-001",
+            productId: "shopify-gid://shopify/Product/001",
+            productTitle: "Mock Shopify Product 1",
+            quantity: 1,
+            unitPrice: 39.99,
+            totalPrice: 39.99,
+            variant: "Size: M, Color: Blue",
+            imageUrl: "https://cdn.shopify.com/s/files/1/mock1.jpg",
+          },
+          {
+            id: "shopify-cart-002", 
+            productId: "shopify-gid://shopify/Product/002",
+            productTitle: "Mock Shopify Product 2",
+            quantity: 2,
+            unitPrice: 24.99,
+            totalPrice: 49.98,
+            imageUrl: "https://cdn.shopify.com/s/files/1/mock2.jpg",
+          },
+        ],
+        totalItems: 3,
+        totalPrice: 89.97,
+        currency: "USD",
+      };
+
+      return this.createSuccessResult(mockCart);
+    } catch (error) {
+      console.error("[Shopify] Get cart contents error:", error);
+      return this.createErrorResult(
+        `Failed to get Shopify cart contents: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
+    }
+  }
+}

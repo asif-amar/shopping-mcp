@@ -17,6 +17,81 @@ export const CalculateSchema = {
   b: z.number().describe("Second number"),
 };
 
+// Shopping tool schemas
+export const SearchProductsSchema = {
+  website: z
+    .enum(["rami-levy"]) // "amazon", "shopify" - commented out for now
+    .describe("Shopping website to search"),
+  query: z
+    .string()
+    .min(1, "Search query cannot be empty")
+    .describe("Product search query"),
+  category: z
+    .string()
+    .optional()
+    .describe("Product category filter"),
+  priceRange: z
+    .object({
+      min: z.number().min(0).describe("Minimum price"),
+      max: z.number().min(0).describe("Maximum price"),
+    })
+    .optional()
+    .describe("Price range filter"),
+};
+
+export const AddToCartSchema = {
+  website: z
+    .enum(["rami-levy"]) // "amazon", "shopify" - commented out for now
+    .describe("Shopping website"),
+  productId: z
+    .string()
+    .min(1, "Product ID cannot be empty")
+    .describe("Unique product identifier"),
+  quantity: z
+    .number()
+    .int()
+    .min(1)
+    .max(100)
+    .default(1)
+    .describe("Quantity to add to cart"),
+  variant: z
+    .string()
+    .optional()
+    .describe("Product variant (size, color, etc.)"),
+};
+
+export const RemoveFromCartSchema = {
+  website: z
+    .enum(["rami-levy"]) // "amazon", "shopify" - commented out for now
+    .describe("Shopping website"),
+  cartItemId: z
+    .string()
+    .min(1, "Cart item ID cannot be empty")
+    .describe("Cart item identifier to remove"),
+};
+
+export const UpdateCartQuantitySchema = {
+  website: z
+    .enum(["rami-levy"]) // "amazon", "shopify" - commented out for now
+    .describe("Shopping website"),
+  cartItemId: z
+    .string()
+    .min(1, "Cart item ID cannot be empty")
+    .describe("Cart item identifier to update"),
+  quantity: z
+    .number()
+    .int()
+    .min(0)
+    .max(100)
+    .describe("New quantity (0 to remove item)"),
+};
+
+export const GetCartContentsSchema = {
+  website: z
+    .enum(["rami-levy"]) // "amazon", "shopify" - commented out for now
+    .describe("Shopping website"),
+};
+
 // MCP response types
 export interface McpTextContent {
   type: "text";
