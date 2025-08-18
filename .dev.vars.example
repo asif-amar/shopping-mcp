@@ -1,0 +1,13 @@
+# Development environment variables
+# Copy this file to .dev.vars and fill in your values
+
+NODE_ENV=development
+
+# For future OAuth integration (not needed for basic math tool)
+# GITHUB_CLIENT_ID=your_github_client_id
+# GITHUB_CLIENT_SECRET=your_github_client_secret
+# COOKIE_ENCRYPTION_KEY=your_random_encryption_key
+
+# For future shopping API integrations
+# SHOPPING_API_KEY=your_shopping_api_key
+# SHOPPING_API_URL=https://api.example.com
