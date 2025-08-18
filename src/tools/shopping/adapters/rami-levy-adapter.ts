@@ -39,21 +39,29 @@ export class RamiLevyAdapter extends BaseShoppingAdapter {
 
     // Initialize API client with Rami Levy specific headers
     const headers: Record<string, string> = {
-      accept: "application/json, text/plain, */*",
-      "content-type": "application/json;charset=UTF-8",
+      accept: "application/json",
+      "content-type": "application/json",
       locale: "he",
+      origin: "https://www.rami-levy.co.il",
+      referer: "https://www.rami-levy.co.il/he/online/search",
     };
 
     if (credentials?.apiKey) {
       headers["Authorization"] = `Bearer ${credentials.apiKey}`;
+    } else {
+      throw new Error("Rami Levy adapter requires API key");
     }
     if (credentials?.accessToken) {
       // Using accessToken for ecomtoken
       headers["Ecomtoken"] = credentials.accessToken;
+    } else {
+      throw new Error("Rami Levy adapter requires ecom token");
     }
     if (credentials?.refreshToken) {
       // Using refreshToken for cookie
       headers["Cookie"] = credentials.refreshToken;
+    } else {
+      throw new Error("Rami Levy adapter requires cookie");
     }
 
     this.apiClient = new ApiClient(config.baseUrl, headers);
@@ -66,11 +74,13 @@ export class RamiLevyAdapter extends BaseShoppingAdapter {
       console.log(`[Rami Levy] Searching for: "${options.query}"`);
 
       // Call Rami Levy catalog API
-      const response = await this.apiClient.post("/catalog?", {
+      const payload = {
         q: options.query,
         store: this.store,
-        // aggs: 1,
-      });
+        aggs: 1,
+      };
+
+      const response = await this.apiClient.post("/catalog", payload);
 
       // Parse response according to Rami Levy API structure
       const ramiLevyResponse = response as {
@@ -88,8 +98,6 @@ export class RamiLevyAdapter extends BaseShoppingAdapter {
       if (ramiLevyResponse.status !== 200) {
         return this.createErrorResult("Search request failed");
       }
-
-      console.log("[Rami Levy] Search response:", ramiLevyResponse);
 
       // Transform Rami Levy products to our standard format
       const products: Product[] = ramiLevyResponse.data.map((item) => {
@@ -113,13 +121,14 @@ export class RamiLevyAdapter extends BaseShoppingAdapter {
       // Apply client-side filtering if needed
       let filteredProducts = products;
 
-      if (options.priceRange) {
-        filteredProducts = products.filter(
-          (product) =>
-            product.price >= options.priceRange!.min &&
-            product.price <= options.priceRange!.max
-        );
-      }
+      // TODO: Check if we need that price range filtering
+      // if (options.priceRange) {
+      //   filteredProducts = products.filter(
+      //     (product) =>
+      //       product.price >= options.priceRange!.min &&
+      //       product.price <= options.priceRange!.max
+      //   );
+      // }
 
       const result: ProductSearchResult = {
         products: filteredProducts,
