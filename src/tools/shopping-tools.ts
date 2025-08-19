@@ -18,7 +18,7 @@ export function registerShoppingTools(
   // Tool 1: Search Products
   server.tool(
     "searchProducts",
-    "Search for products on supported shopping websites (Rami Levy). Returns product information including title, price, availability, and ratings. You must search in Hebrew for Israeli websites, example: milk -> חלב",
+    "Search for products on supported shopping websites (Rami Levy, Shufersal). Returns product information including title, price, availability, and ratings. You must search in Hebrew for Israeli websites, example: milk -> חלב",
     SearchProductsSchema,
     async ({ website, query, category, priceRange }) => {
       try {

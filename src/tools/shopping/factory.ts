@@ -2,6 +2,7 @@ import { BaseShoppingAdapter } from "./adapters/base-adapter";
 // import { AmazonAdapter } from "./adapters/amazon-adapter"; // Commented out
 // import { ShopifyAdapter } from "./adapters/shopify-adapter"; // Commented out
 import { RamiLevyAdapter } from "./adapters/rami-levy-adapter";
+import { ShufersalAdapter } from "./adapters/shufersal-adapter";
 import { SupportedWebsite, WebsiteCredentials } from "./types";
 
 /**
@@ -28,6 +29,10 @@ export class ShoppingAdapterFactory {
       switch (website) {
         case "rami-levy":
           adapter = new RamiLevyAdapter(this.getRamiLevyCredentials(env));
+          break;
+
+        case "shufersal":
+          adapter = new ShufersalAdapter(); // No credentials needed for search-only
           break;
 
         // case "amazon":
@@ -59,7 +64,7 @@ export class ShoppingAdapterFactory {
    * Get list of supported websites
    */
   static getSupportedWebsites(): SupportedWebsite[] {
-    return ["rami-levy"]; // "amazon", "shopify" - commented out for now
+    return ["rami-levy", "shufersal"]; // "amazon", "shopify" - commented out for now
   }
 
   /**
@@ -143,6 +148,10 @@ export class ShoppingAdapterFactory {
         }
         break;
 
+      case "shufersal":
+        // No environment variables required for search-only
+        break;
+
       // case "amazon":
       //   if (!env || !(env as any).AMAZON_API_KEY) {
       //     missingVars.push('AMAZON_API_KEY');
@@ -175,6 +184,8 @@ export class ShoppingAdapterFactory {
       // Return default rate limits if adapter not initialized
       switch (website) {
         case "rami-levy":
+          return 60;
+        case "shufersal":
           return 60;
         // case "amazon":
         //   return 100;
