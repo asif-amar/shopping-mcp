@@ -11,8 +11,12 @@ NODE_ENV=development
 # Shopping API integrations
 # Rami Levy API credentials (rami-levy.co.il)
 RAMI_LEVY_API_KEY=your_rami_levy_bearer_token
-ECOM_TOKEN=your_ecom_token
-COOKIE=your_cookie_string
+RAMI_LEVY_ECOM_TOKEN=your_RAMI_LEVY_ECOM_TOKEN
+RAMI_LEVY_COOKIE=your_cookie_string
+
+# Shufersal API credentials (shufersal.co.il)
+SHUFERSAL_COOKIE=your_shufersal_cookie_string
+SHUFERSAL_CSRF_TOKEN=your_shufersal_csrf_token
 
 # Amazon API credentials (commented out)
 # AMAZON_API_KEY=your_amazon_api_key

@@ -2,6 +2,7 @@ import { BaseShoppingAdapter } from "./adapters/base-adapter";
 // import { AmazonAdapter } from "./adapters/amazon-adapter"; // Commented out
 // import { ShopifyAdapter } from "./adapters/shopify-adapter"; // Commented out
 import { RamiLevyAdapter } from "./adapters/rami-levy-adapter";
+import { ShufersalAdapter } from "./adapters/shufersal-adapter";
 import { SupportedWebsite, WebsiteCredentials } from "./types";
 
 /**
@@ -9,7 +10,8 @@ import { SupportedWebsite, WebsiteCredentials } from "./types";
  * Handles routing operations to the correct website implementation
  */
 export class ShoppingAdapterFactory {
-  private static adapters: Map<SupportedWebsite, BaseShoppingAdapter> = new Map();
+  private static adapters: Map<SupportedWebsite, BaseShoppingAdapter> =
+    new Map();
 
   /**
    * Get or create an adapter for the specified website
@@ -30,6 +32,10 @@ export class ShoppingAdapterFactory {
           adapter = new RamiLevyAdapter(this.getRamiLevyCredentials(env));
           break;
 
+        case "shufersal":
+          adapter = new ShufersalAdapter(this.getShufersalCredentials(env));
+          break;
+
         // case "amazon":
         //   adapter = new AmazonAdapter(this.getAmazonCredentials(env));
         //   break;
@@ -45,11 +51,10 @@ export class ShoppingAdapterFactory {
       // Cache the adapter for reuse
       this.adapters.set(website, adapter);
       return adapter;
-
     } catch (error) {
       throw new Error(
         `Failed to initialize ${website} adapter: ${
-          error instanceof Error ? error.message : 'Unknown error'
+          error instanceof Error ? error.message : "Unknown error"
         }`
       );
     }
@@ -59,7 +64,7 @@ export class ShoppingAdapterFactory {
    * Get list of supported websites
    */
   static getSupportedWebsites(): SupportedWebsite[] {
-    return ["rami-levy"]; // "amazon", "shopify" - commented out for now
+    return ["rami-levy", "shufersal"]; // "amazon", "shopify" - commented out for now
   }
 
   /**
@@ -79,22 +84,51 @@ export class ShoppingAdapterFactory {
   /**
    * Get Rami Levy credentials from environment
    */
-  private static getRamiLevyCredentials(env?: Env): WebsiteCredentials | undefined {
+  private static getRamiLevyCredentials(
+    env?: Env
+  ): WebsiteCredentials | undefined {
     if (!env) return undefined;
 
     const credentials: WebsiteCredentials = {};
-    
+
     // Check for Rami Levy API credentials in environment variables
     if ((env as any).RAMI_LEVY_API_KEY) {
       credentials.apiKey = (env as any).RAMI_LEVY_API_KEY; // Bearer token
     }
-    
-    if ((env as any).ECOM_TOKEN) {
-      credentials.accessToken = (env as any).ECOM_TOKEN; // ecomtoken header
+
+    if ((env as any).RAMI_LEVY_ECOM_TOKEN) {
+      credentials.accessToken = (env as any).RAMI_LEVY_ECOM_TOKEN; // ecomtoken header
     }
-    
-    if ((env as any).COOKIE) {
-      credentials.refreshToken = (env as any).COOKIE; // cookie header
+
+    if ((env as any).RAMI_LEVY_COOKIE) {
+      credentials.refreshToken = (env as any).RAMI_LEVY_COOKIE; // cookie header
+    }
+
+    if ((env as any).RAMI_LEVY_USER_ID) {
+      credentials.clientId = (env as any).RAMI_LEVY_USER_ID; // user ID for cart operations
+    }
+
+    return Object.keys(credentials).length > 0 ? credentials : undefined;
+  }
+
+  /**
+   * Get Shufersal credentials from environment
+   */
+  private static getShufersalCredentials(
+    env?: Env
+  ): WebsiteCredentials | undefined {
+    if (!env) return undefined;
+
+    const credentials: WebsiteCredentials = {};
+
+    // Check for Shufersal cart credentials in environment variables
+    // These are needed for cart operations like add to cart
+    if ((env as any).SHUFERSAL_CSRF_TOKEN) {
+      credentials.apiKey = (env as any).SHUFERSAL_CSRF_TOKEN; // CSRF token
+    }
+
+    if ((env as any).SHUFERSAL_COOKIE) {
+      credentials.accessToken = (env as any).SHUFERSAL_COOKIE; // cookie header
     }
 
     return Object.keys(credentials).length > 0 ? credentials : undefined;
@@ -127,19 +161,35 @@ export class ShoppingAdapterFactory {
   /**
    * Validate that all required environment variables are set for a website
    */
-  static validateWebsiteConfig(website: SupportedWebsite, env?: Env): { isValid: boolean; missingVars: string[] } {
+  static validateWebsiteConfig(
+    website: SupportedWebsite,
+    env?: Env
+  ): { isValid: boolean; missingVars: string[] } {
     const missingVars: string[] = [];
 
     switch (website) {
       case "rami-levy":
         if (!env || !(env as any).RAMI_LEVY_API_KEY) {
-          missingVars.push('RAMI_LEVY_API_KEY');
+          missingVars.push("RAMI_LEVY_API_KEY");
         }
-        if (!env || !(env as any).ECOM_TOKEN) {
-          missingVars.push('ECOM_TOKEN');
+        if (!env || !(env as any).RAMI_LEVY_ECOM_TOKEN) {
+          missingVars.push("RAMI_LEVY_ECOM_TOKEN");
         }
-        if (!env || !(env as any).COOKIE) {
-          missingVars.push('COOKIE');
+        if (!env || !(env as any).RAMI_LEVY_COOKIE) {
+          missingVars.push("RAMI_LEVY_COOKIE");
+        }
+        if (!env || !(env as any).RAMI_LEVY_USER_ID) {
+          missingVars.push("RAMI_LEVY_USER_ID");
+        }
+        break;
+
+      case "shufersal":
+        // Cart operations require authentication credentials
+        if (!env || !(env as any).SHUFERSAL_CSRF_TOKEN) {
+          missingVars.push("SHUFERSAL_CSRF_TOKEN");
+        }
+        if (!env || !(env as any).SHUFERSAL_COOKIE) {
+          missingVars.push("SHUFERSAL_COOKIE");
         }
         break;
 
@@ -175,6 +225,8 @@ export class ShoppingAdapterFactory {
       // Return default rate limits if adapter not initialized
       switch (website) {
         case "rami-levy":
+          return 60;
+        case "shufersal":
           return 60;
         // case "amazon":
         //   return 100;
