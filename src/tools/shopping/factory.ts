@@ -104,6 +104,10 @@ export class ShoppingAdapterFactory {
       credentials.refreshToken = (env as any).RAMI_LEVY_COOKIE; // cookie header
     }
 
+    if ((env as any).RAMI_LEVY_USER_ID) {
+      credentials.clientId = (env as any).RAMI_LEVY_USER_ID; // user ID for cart operations
+    }
+
     return Object.keys(credentials).length > 0 ? credentials : undefined;
   }
 
@@ -173,6 +177,9 @@ export class ShoppingAdapterFactory {
         }
         if (!env || !(env as any).RAMI_LEVY_COOKIE) {
           missingVars.push("RAMI_LEVY_COOKIE");
+        }
+        if (!env || !(env as any).RAMI_LEVY_USER_ID) {
+          missingVars.push("RAMI_LEVY_USER_ID");
         }
         break;
 
