@@ -41,8 +41,8 @@ export interface CartItem {
   productId: string;
   productTitle: string;
   quantity: number;
-  unitPrice: number;
-  totalPrice: number;
+  unitPrice?: number;
+  totalPrice?: number;
   variant?: string;
   imageUrl?: string;
 }
@@ -50,7 +50,7 @@ export interface CartItem {
 export interface Cart {
   items: CartItem[];
   totalItems: number;
-  totalPrice: number;
+  totalPrice?: number;
   currency: string;
 }
 

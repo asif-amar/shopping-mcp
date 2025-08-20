@@ -200,16 +200,30 @@ export function registerShoppingTools(
           };
         }
 
-        const cartItem = result.data!;
+        const cartResult = result.data!;
 
-        return {
-          content: [
-            {
-              type: "text",
-              text: `**Added to Cart**\n\n**Website:** ${website.toUpperCase()}\n**Product:** ${cartItem.productTitle}\n**Quantity:** ${cartItem.quantity}\n**Unit Price:** ${cartItem.totalPrice / cartItem.quantity}\n**Total Price:** ${cartItem.totalPrice}\n**Cart Item ID:** ${cartItem.id}${cartItem.variant ? `\n**Variant:** ${cartItem.variant}` : ""}`,
-            },
-          ],
-        };
+        // Handle both string and CartItem responses
+        if (typeof cartResult === 'string') {
+          return {
+            content: [
+              {
+                type: "text",
+                text: `**Added to Cart**\n\n**Website:** ${website.toUpperCase()}\n**Result:** ${cartResult}`,
+              },
+            ],
+          };
+        } else {
+          // Handle CartItem response
+          const cartItem = cartResult;
+          return {
+            content: [
+              {
+                type: "text",
+                text: `**Added to Cart**\n\n**Website:** ${website.toUpperCase()}\n**Product:** ${cartItem.productTitle}\n**Quantity:** ${cartItem.quantity}${cartItem.unitPrice !== undefined ? `\n**Unit Price:** ${cartItem.unitPrice.toFixed(2)}` : ''}${cartItem.totalPrice !== undefined ? `\n**Total Price:** ${cartItem.totalPrice.toFixed(2)}` : ''}\n**Cart Item ID:** ${cartItem.id}${cartItem.variant ? `\n**Variant:** ${cartItem.variant}` : ""}`,
+              },
+            ],
+          };
+        }
       } catch (error) {
         console.error("[Shopping] Add to cart error:", error);
         return {
@@ -408,7 +422,7 @@ export function registerShoppingTools(
             content: [
               {
                 type: "text",
-                text: `**Shopping Cart**\n\n**Website:** ${website.toUpperCase()}\n**Status:** Empty\n**Total Items:** 0\n**Total Price:** ${cart.currency} 0.00`,
+                text: `**Shopping Cart**\n\n**Website:** ${website.toUpperCase()}\n**Status:** Empty\n**Total Items:** 0${cart.totalPrice !== undefined ? `\n**Total Price:** ${cart.currency} ${cart.totalPrice.toFixed(2)}` : ''}`,
               },
             ],
           };
@@ -418,13 +432,13 @@ export function registerShoppingTools(
           content: [
             {
               type: "text",
-              text: `**Shopping Cart**\n\n**Website:** ${website.toUpperCase()}\n**Total Items:** ${cart.totalItems}\n**Total Price:** ${cart.currency} ${cart.totalPrice}\n\n**Items:**\n${cart.items
+              text: `**Shopping Cart**\n\n**Website:** ${website.toUpperCase()}\n**Total Items:** ${cart.totalItems}${cart.totalPrice !== undefined ? `\n**Total Price:** ${cart.currency} ${cart.totalPrice.toFixed(2)}` : ''}\n\n**Items:**\n${cart.items
                 .map(
                   (item, index) =>
                     `${index + 1}. **${item.productTitle}**\n` +
                     `   - Quantity: ${item.quantity}\n` +
-                    `   - Unit Price: ${cart.currency} ${item.unitPrice}\n` +
-                    `   - Total: ${cart.currency} ${item.totalPrice}\n` +
+                    `${item.unitPrice !== undefined ? `   - Unit Price: ${cart.currency} ${item.unitPrice.toFixed(2)}\n` : ''}` +
+                    `${item.totalPrice !== undefined ? `   - Total: ${cart.currency} ${item.totalPrice.toFixed(2)}\n` : ''}` +
                     `   - Cart Item ID: ${item.id}` +
                     `${item.variant ? `\n   - Variant: ${item.variant}` : ""}`
                 )

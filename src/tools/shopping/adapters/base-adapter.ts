@@ -43,7 +43,7 @@ export abstract class BaseShoppingAdapter {
     productId: string,
     quantity: number,
     variant?: string
-  ): Promise<ShoppingOperationResult<CartItem>>;
+  ): Promise<ShoppingOperationResult<CartItem | string>>;
 
   /**
    * Remove an item from the shopping cart

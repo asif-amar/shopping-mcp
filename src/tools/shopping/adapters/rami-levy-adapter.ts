@@ -149,7 +149,7 @@ export class RamiLevyAdapter extends BaseShoppingAdapter {
     productId: string,
     quantity: number,
     variant?: string
-  ): Promise<ShoppingOperationResult<CartItem>> {
+  ): Promise<ShoppingOperationResult<CartItem | string>> {
     try {
       console.log(`[Rami Levy] Adding to cart: ${productId}, qty: ${quantity}`);
 

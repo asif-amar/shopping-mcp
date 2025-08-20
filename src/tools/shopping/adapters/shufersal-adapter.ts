@@ -16,6 +16,14 @@ interface ShufersalSearchApiResponse {
   results?: ShufersalSearchResultItem[];
 }
 
+// Add to cart response - Shufersal returns HTML, not JSON
+// interface ShufersalAddToCartResponse {
+//   success?: boolean;
+//   message?: string;
+//   error?: string;
+//   data?: any;
+// }
+
 // Loosely model the response to capture pricing and availability
 interface ShufersalSearchResultItem {
   code: string;
@@ -63,7 +71,7 @@ export class ShufersalAdapter extends BaseShoppingAdapter {
       baseUrl: "https://www.shufersal.co.il/online/he",
       apiVersion: "v1",
       rateLimitPerMinute: 60,
-      requiresAuth: false, // Search doesn't require auth
+      requiresAuth: true, // Cart operations require auth
     };
 
     super("shufersal", config, credentials);
@@ -113,44 +121,64 @@ export class ShufersalAdapter extends BaseShoppingAdapter {
         const priceField = item.price as any;
         if (typeof priceField === "number") {
           priceNum = priceField;
-        } else if (priceField && typeof priceField === "object" && typeof priceField.value === "number") {
+        } else if (
+          priceField &&
+          typeof priceField === "object" &&
+          typeof priceField.value === "number"
+        ) {
           priceNum = priceField.value;
-        } else if (item.categoryPrice && typeof item.categoryPrice.value === "number") {
+        } else if (
+          item.categoryPrice &&
+          typeof item.categoryPrice.value === "number"
+        ) {
           priceNum = item.categoryPrice.value;
-        } else if (item.pricePerUnit && typeof item.pricePerUnit.value === "number") {
+        } else if (
+          item.pricePerUnit &&
+          typeof item.pricePerUnit.value === "number"
+        ) {
           priceNum = item.pricePerUnit.value;
         } else if (typeof item.effectivePrice === "number") {
           priceNum = item.effectivePrice;
         }
 
         // Determine currency if provided
-        const currencyIso = (typeof priceField === "object" && priceField?.currencyIso)
-          || item.categoryPrice?.currencyIso
-          || item.pricePerUnit?.currencyIso
-          || "ILS";
+        const currencyIso =
+          (typeof priceField === "object" && priceField?.currencyIso) ||
+          item.categoryPrice?.currencyIso ||
+          item.pricePerUnit?.currencyIso ||
+          "ILS";
 
         // Availability from stock status
-        const availability = (item.stock?.stockLevelStatus?.code || "").toLowerCase() === "instock";
+        const availability =
+          (item.stock?.stockLevelStatus?.code || "").toLowerCase() ===
+          "instock";
 
         // Prefer API-provided URL if present; otherwise fallback to product path
         const url = item.url
-          ? (item.url.startsWith("http")
-              ? item.url
-              : `https://www.shufersal.co.il${item.url}`)
+          ? item.url.startsWith("http")
+            ? item.url
+            : `https://www.shufersal.co.il${item.url}`
           : `https://www.shufersal.co.il/online/he/product/${item.code}`;
 
         // Choose an image URL with sensible priority
-        const imageUrl = item.baseProductImageLarge
-          || item.baseProductImageMedium
-          || item.baseProductImageSmall
-          || (item.images?.find(i => (i.format || "").toLowerCase() === "product")?.url)
-          || (item.images?.find(i => (i.format || "").toLowerCase() === "large")?.url)
-          || (item.images && item.images.length > 0 ? item.images[0].url : undefined);
+        const imageUrl =
+          item.baseProductImageLarge ||
+          item.baseProductImageMedium ||
+          item.baseProductImageSmall ||
+          item.images?.find((i) => (i.format || "").toLowerCase() === "product")
+            ?.url ||
+          item.images?.find((i) => (i.format || "").toLowerCase() === "large")
+            ?.url ||
+          (item.images && item.images.length > 0
+            ? item.images[0].url
+            : undefined);
 
         const product: Product = {
           id: item.code,
           title: item.name,
-          description: item.brandName ? `${item.name} - ${item.brandName}` : item.name,
+          description: item.brandName
+            ? `${item.name} - ${item.brandName}`
+            : item.name,
           price: priceNum,
           currency: currencyIso,
           availability,
@@ -158,8 +186,14 @@ export class ShufersalAdapter extends BaseShoppingAdapter {
           brand: item.brandName,
           url,
           imageUrl,
-          rating: typeof item.averageRating === "number" ? item.averageRating : undefined,
-          reviewCount: typeof item.numberOfReviews === "number" ? item.numberOfReviews : undefined,
+          rating:
+            typeof item.averageRating === "number"
+              ? item.averageRating
+              : undefined,
+          reviewCount:
+            typeof item.numberOfReviews === "number"
+              ? item.numberOfReviews
+              : undefined,
         };
 
         return this.sanitizeProduct(product);
@@ -191,11 +225,115 @@ export class ShufersalAdapter extends BaseShoppingAdapter {
     }
   }
 
-  // Cart operations not implemented for Shufersal (search only)
-  async addToCart(): Promise<ShoppingOperationResult<CartItem>> {
-    return this.createErrorResult(
-      "Cart operations not implemented for Shufersal"
-    );
+  async addToCart(
+    productId: string,
+    quantity: number = 1,
+    variant?: string
+  ): Promise<ShoppingOperationResult<string>> {
+    try {
+      console.log(
+        `[Shufersal] Adding product ${productId} to cart with quantity ${quantity}`
+      );
+
+      // Get authentication credentials from adapter credentials or environment fallback
+      const csrfToken =
+        this.credentials?.apiKey || process.env.SHUFERSAL_CSRF_TOKEN;
+      const cookie =
+        this.credentials?.accessToken || process.env.SHUFERSAL_COOKIE;
+
+      if (!csrfToken || !cookie) {
+        return this.createErrorResult(
+          "Missing Shufersal authentication credentials (SHUFERSAL_CSRF_TOKEN or SHUFERSAL_COOKIE)"
+        );
+      }
+
+      // Prepare the request body as per your example
+      const requestBody = {
+        productCodePost: productId,
+        productCode: productId,
+        sellingMethod: "BY_UNIT", // Default selling method
+        qty: quantity.toString(),
+        frontQuantity: quantity.toString(),
+        comment: "",
+        affiliateCode: "",
+      };
+
+      // Prepare headers with authentication
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+        Origin: "https://www.shufersal.co.il",
+        Referer:
+          "https://www.shufersal.co.il/online/he/search?text=%D7%99%D7%95%D7%92%D7%95%D7%A8%D7%98",
+        "X-Requested-With": "XMLHttpRequest",
+        "Accept-Encoding": "gzip, deflate, br, zstd",
+        "Accept-Language": "en-US,en;q=0.9",
+        Accept: "*/*",
+        Cookie: cookie,
+        csrftoken: csrfToken,
+        Connection: "keep-alive",
+      };
+
+      // Create a separate API client for cart operations with proper base URL
+      const cartApiClient = new ApiClient(
+        "https://www.shufersal.co.il/online/he",
+        headers
+      );
+
+      // Make the add to cart request - Shufersal returns HTML, not JSON
+      const response = await cartApiClient.request<string>({
+        method: "POST",
+        endpoint: "/cart/add",
+        body: requestBody,
+        headers,
+      });
+
+      // Validate response type
+      if (!response || typeof response !== "string") {
+        return this.createErrorResult(
+          "Invalid response from Shufersal cart API"
+        );
+      }
+
+      // Console log the first 10 lines
+      const responseLines = response.toString().split("\n");
+      console.log(
+        "[Shufersal] Response preview (first 10 lines):",
+        responseLines.slice(0, 10)
+      );
+
+      // Convert to string and trim leading whitespace
+      const responseHtml = response.toString().trim();
+
+      // Define success prefix
+      const successPrefix = "<div class=";
+
+      // Check for success
+      const isSuccess = responseHtml.startsWith(successPrefix);
+
+      if (!isSuccess) {
+        console.error(
+          "[Shufersal] Add to cart failed. Response snippet:",
+          responseHtml.slice(0, 300)
+        );
+        return this.createErrorResult(
+          "Product could not be added to cart - possible stock or authentication issue"
+        );
+      }
+
+      console.log("[Shufersal] ✅ Item successfully added to cart");
+
+      console.log(
+        `[Shufersal] Successfully added ${quantity} units of ${productId} to cart`
+      );
+      
+      const message = `Successfully added ${quantity} units of ${productId} to Shufersal cart${variant ? ` (variant: ${variant})` : ''}`;
+      return this.createSuccessResult(message);
+    } catch (error) {
+      console.error("[Shufersal] Add to cart error:", error);
+      return this.createErrorResult(
+        `Failed to add product to Shufersal cart: ${error instanceof Error ? error.message : "Unknown error"}`
+      );
+    }
   }
 
   async removeFromCart(): Promise<ShoppingOperationResult<boolean>> {
