@@ -48,13 +48,6 @@ export class ApiClient {
           : JSON.stringify(options.body);
     }
 
-    // Debug: Log full request details
-    console.log(`[ApiClient] Making ${options.method} request to:`, finalUrl);
-    console.log(`[ApiClient] Request headers:`, config.headers);
-    if (config.body) {
-      console.log(`[ApiClient] Request body:`, config.body);
-    }
-
     try {
       const response = await fetch(finalUrl, config);
 
@@ -67,19 +60,7 @@ export class ApiClient {
       if (contentType?.includes("application/json")) {
         const data = await response.json();
 
-        // Debug: Log raw response before sanitization
-        console.log(
-          `[ApiClient] Raw response data:`,
-          JSON.stringify(data, null, 2)
-        );
-
         const sanitized = this.sanitizeResponse(data);
-
-        // Debug: Log response after sanitization
-        console.log(
-          `[ApiClient] Sanitized response data:`,
-          JSON.stringify(sanitized, null, 2)
-        );
 
         return sanitized as T;
       } else {
