@@ -84,7 +84,10 @@ export class RamiLevyAdapter extends BaseShoppingAdapter {
   /**
    * Calculate the best price considering sales and quantity
    */
-  private calculateBestPrice(product: RamiLevyProductData, quantity: number): {
+  private calculateBestPrice(
+    product: RamiLevyProductData,
+    quantity: number
+  ): {
     unitPrice: number;
     totalPrice: number;
     saleInfo?: string;
@@ -101,11 +104,12 @@ export class RamiLevyAdapter extends BaseShoppingAdapter {
     }
 
     // Filter active sales and find applicable ones
-    const applicableSales = product.sale.filter(sale => 
-      sale.active === 1 && 
-      sale.cmt > 0 && 
-      sale.scm > 0 &&
-      quantity >= sale.cmt // Only consider sales where we have enough quantity
+    const applicableSales = product.sale.filter(
+      (sale) =>
+        sale.active === 1 &&
+        sale.cmt > 0 &&
+        sale.scm > 0 &&
+        quantity >= sale.cmt // Only consider sales where we have enough quantity
     );
 
     if (applicableSales.length === 0) {
@@ -126,22 +130,25 @@ export class RamiLevyAdapter extends BaseShoppingAdapter {
         // Handle max_in_doc logic: only up to max_in_doc quantity gets sale price
         const discountedQty = Math.min(quantity, sale.max_in_doc);
         const regularQty = quantity - discountedQty;
-        
+
         // Calculate how many complete sale units we can buy from the discounted quantity
         const saleUnits = Math.floor(discountedQty / sale.cmt);
         const remainingDiscountedItems = discountedQty % sale.cmt;
-        
+
         // Total cost = (sale units * sale price) + (remaining discounted items * regular price) + (regular quantity * regular price)
-        saleTotal = (saleUnits * sale.scm) + (remainingDiscountedItems * regularPrice) + (regularQty * regularPrice);
+        saleTotal =
+          saleUnits * sale.scm +
+          remainingDiscountedItems * regularPrice +
+          regularQty * regularPrice;
       } else {
         // Original logic: no max_in_doc limit
         const saleUnits = Math.floor(quantity / sale.cmt);
         const remainingItems = quantity % sale.cmt;
-        
+
         // Total cost = (sale units * sale price) + (remaining items * regular price)
-        saleTotal = (saleUnits * sale.scm) + (remainingItems * regularPrice);
+        saleTotal = saleUnits * sale.scm + remainingItems * regularPrice;
       }
-      
+
       if (saleTotal < bestTotalPrice) {
         bestTotalPrice = saleTotal;
         bestSale = sale;
@@ -151,8 +158,11 @@ export class RamiLevyAdapter extends BaseShoppingAdapter {
     if (bestSale) {
       const savings = regularTotal - bestTotalPrice;
       const clubNote = bestSale.is_club === 1 ? " (Club members only)" : "";
-      const maxNote = bestSale.max_in_doc && bestSale.max_in_doc > 0 ? ` (Max ${bestSale.max_in_doc} items on sale)` : "";
-      
+      const maxNote =
+        bestSale.max_in_doc && bestSale.max_in_doc > 0
+          ? ` (Max ${bestSale.max_in_doc} items on sale)`
+          : "";
+
       return {
         unitPrice: bestTotalPrice / quantity, // Effective unit price
         totalPrice: bestTotalPrice,
@@ -161,18 +171,25 @@ export class RamiLevyAdapter extends BaseShoppingAdapter {
     }
 
     // Check if there are sales the user could be eligible for with more items
-    const potentialSales = product.sale.filter(sale => {
+    const potentialSales = product.sale.filter((sale) => {
       if (sale.active !== 1 || sale.cmt <= 0 || sale.scm <= 0) {
         return false;
       }
-      
+
       // If max_in_doc is set and user already has more than max_in_doc, no point showing this sale
-      if (sale.max_in_doc && sale.max_in_doc > 0 && quantity >= sale.max_in_doc) {
+      if (
+        sale.max_in_doc &&
+        sale.max_in_doc > 0 &&
+        quantity >= sale.max_in_doc
+      ) {
         return false;
       }
-      
+
       // Check if user needs more items to reach the sale threshold
-      const effectiveMaxQty = sale.max_in_doc && sale.max_in_doc > 0 ? Math.min(sale.cmt, sale.max_in_doc) : sale.cmt;
+      const effectiveMaxQty =
+        sale.max_in_doc && sale.max_in_doc > 0
+          ? Math.min(sale.cmt, sale.max_in_doc)
+          : sale.cmt;
       return quantity < effectiveMaxQty;
     });
 
@@ -184,13 +201,18 @@ export class RamiLevyAdapter extends BaseShoppingAdapter {
         return currentUnitPrice < bestUnitPrice ? current : best;
       });
 
-      const effectiveMaxQty = bestPotentialSale.max_in_doc && bestPotentialSale.max_in_doc > 0 
-        ? Math.min(bestPotentialSale.cmt, bestPotentialSale.max_in_doc) 
-        : bestPotentialSale.cmt;
+      const effectiveMaxQty =
+        bestPotentialSale.max_in_doc && bestPotentialSale.max_in_doc > 0
+          ? Math.min(bestPotentialSale.cmt, bestPotentialSale.max_in_doc)
+          : bestPotentialSale.cmt;
       const needed = effectiveMaxQty - quantity;
-      const clubNote = bestPotentialSale.is_club === 1 ? " (Club members only)" : "";
-      const maxNote = bestPotentialSale.max_in_doc && bestPotentialSale.max_in_doc > 0 ? ` (Max ${bestPotentialSale.max_in_doc} items on sale)` : "";
-      
+      const clubNote =
+        bestPotentialSale.is_club === 1 ? " (Club members only)" : "";
+      const maxNote =
+        bestPotentialSale.max_in_doc && bestPotentialSale.max_in_doc > 0
+          ? ` (Max ${bestPotentialSale.max_in_doc} items on sale)`
+          : "";
+
       return {
         unitPrice: regularPrice,
         totalPrice: regularTotal,
@@ -207,27 +229,27 @@ export class RamiLevyAdapter extends BaseShoppingAdapter {
   /**
    * Update the entire cart with new items and quantities
    */
-  private async updateCart(items: Record<string, number>): Promise<ShoppingOperationResult<boolean>> {
+  private async updateCart(
+    items: Record<string, number>
+  ): Promise<ShoppingOperationResult<boolean>> {
     try {
       const payload = {
         store: this.store,
         isClub: 0,
         supplyAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), // Tomorrow
         items: Object.fromEntries(
-          Object.entries(items).map(([id, quantity]) => [id, quantity.toString()])
+          Object.entries(items).map(([id, quantity]) => [
+            id,
+            quantity.toString(),
+          ])
         ),
         meta: null,
       };
 
-      console.log(`[Rami Levy] Updating cart with payload:`, payload);
-
-      const response = await this.apiClient.post("/v2/cart", payload);
-      
-      console.log(`[Rami Levy] Cart update response:`, response);
+      await this.apiClient.post("/v2/cart", payload);
 
       // The API typically returns a success response, we assume success if no error
       return this.createSuccessResult(true);
-      
     } catch (error) {
       console.error("[Rami Levy] Cart update error:", error);
       return this.createErrorResult(
@@ -300,6 +322,8 @@ export class RamiLevyAdapter extends BaseShoppingAdapter {
         store: this.store,
         aggs: 1,
       };
+
+      // TODO: dynamic headers
 
       const response = await this.apiClient.post("/catalog", payload);
 
@@ -449,7 +473,9 @@ export class RamiLevyAdapter extends BaseShoppingAdapter {
       // Remove the item by excluding it from the items list
       // Only include available items (not unavailable ones marked with -unavailable)
       const updatedItems = currentCart.items
-        .filter((item) => item.id !== cartItemId && !item.id.includes('-unavailable'))
+        .filter(
+          (item) => item.id !== cartItemId && !item.id.includes("-unavailable")
+        )
         .reduce(
           (acc, item) => {
             // Extract original product ID from our cart item ID
@@ -460,11 +486,13 @@ export class RamiLevyAdapter extends BaseShoppingAdapter {
           {} as Record<string, number>
         );
 
-      console.log(`[Rami Levy] Removing item ${cartItemId}, updated cart:`, updatedItems);
+      console.log(
+        `[Rami Levy] Removing item ${cartItemId}, updated cart:`,
+        updatedItems
+      );
 
       // Use the helper method to update the cart
       return await this.updateCart(updatedItems);
-
     } catch (error) {
       console.error("[Rami Levy] Remove from cart error:", error);
       return this.createErrorResult(
@@ -523,7 +551,7 @@ export class RamiLevyAdapter extends BaseShoppingAdapter {
       // Build updated items list with new quantity
       // Only include available items (not unavailable ones marked with -unavailable)
       const updatedItems = currentCart.items
-        .filter((item) => !item.id.includes('-unavailable'))
+        .filter((item) => !item.id.includes("-unavailable"))
         .reduce(
           (acc, item) => {
             // Extract original product ID from our cart item ID
@@ -535,12 +563,17 @@ export class RamiLevyAdapter extends BaseShoppingAdapter {
           {} as Record<string, number>
         );
 
-      console.log(`[Rami Levy] Updating item ${cartItemId} to quantity ${quantity}, updated cart:`, updatedItems);
+      console.log(
+        `[Rami Levy] Updating item ${cartItemId} to quantity ${quantity}, updated cart:`,
+        updatedItems
+      );
 
       // Use the helper method to update the cart
       const updateResult = await this.updateCart(updatedItems);
       if (!updateResult.success) {
-        return this.createErrorResult(updateResult.error || "Failed to update cart");
+        return this.createErrorResult(
+          updateResult.error || "Failed to update cart"
+        );
       }
 
       // Get updated cart to return the updated item details
@@ -634,58 +667,69 @@ export class RamiLevyAdapter extends BaseShoppingAdapter {
 
       // Check availability for our store (331)
       const storeId = parseInt(this.store);
-      const availableProducts = productsData.data.filter((product) => 
-        product.available_in && product.available_in.includes(storeId)
+      const availableProducts = productsData.data.filter(
+        (product) =>
+          product.available_in && product.available_in.includes(storeId)
       );
-      const unavailableProducts = productsData.data.filter((product) => 
-        !product.available_in || !product.available_in.includes(storeId)
+      const unavailableProducts = productsData.data.filter(
+        (product) =>
+          !product.available_in || !product.available_in.includes(storeId)
       );
 
-      console.log(`[Rami Levy] Store ${storeId}: ${availableProducts.length} available, ${unavailableProducts.length} unavailable`);
+      console.log(
+        `[Rami Levy] Store ${storeId}: ${availableProducts.length} available, ${unavailableProducts.length} unavailable`
+      );
 
       // Step 3: Combine cart quantities with product details (all products)
-      const availableCartItems: CartItem[] = availableProducts.map((product) => {
-        const quantity = cartItems[product.id.toString()] || 0;
-        const priceInfo = this.calculateBestPrice(product, quantity);
-        
-        // Add sale info to product title if applicable
-        const productTitle = priceInfo.saleInfo 
-          ? `${product.gs?.name || product.name} - ${priceInfo.saleInfo}`
-          : product.gs?.name || product.name;
-        
-        return {
-          id: `rami-levy-${product.id}`,
-          productId: product.id.toString(),
-          productTitle,
-          quantity,
-          unitPrice: priceInfo.unitPrice,
-          totalPrice: priceInfo.totalPrice,
-          imageUrl: product.images?.small
-            ? `https://www.rami-levy.co.il${product.images.small}`
-            : undefined,
-        };
-      });
+      const availableCartItems: CartItem[] = availableProducts.map(
+        (product) => {
+          const quantity = cartItems[product.id.toString()] || 0;
+          const priceInfo = this.calculateBestPrice(product, quantity);
+
+          // Add sale info to product title if applicable
+          const productTitle = priceInfo.saleInfo
+            ? `${product.gs?.name || product.name} - ${priceInfo.saleInfo}`
+            : product.gs?.name || product.name;
+
+          return {
+            id: `rami-levy-${product.id}`,
+            productId: product.id.toString(),
+            productTitle,
+            quantity,
+            unitPrice: priceInfo.unitPrice,
+            totalPrice: priceInfo.totalPrice,
+            imageUrl: product.images?.small
+              ? `https://www.rami-levy.co.il${product.images.small}`
+              : undefined,
+          };
+        }
+      );
 
       // Add unavailable products with clear indication
-      const unavailableCartItems: CartItem[] = unavailableProducts.map((product) => {
-        const quantity = cartItems[product.id.toString()] || 0;
-        const unitPrice = product.price?.price || 0;
-        
-        return {
-          id: `rami-levy-${product.id}-unavailable`,
-          productId: product.id.toString(),
-          productTitle: `❌ ${product.gs?.name || product.name} (Not available in store ${storeId})`,
-          quantity,
-          unitPrice,
-          totalPrice: 0, // Set to 0 since it can't be purchased
-          imageUrl: product.images?.small
-            ? `https://www.rami-levy.co.il${product.images.small}`
-            : undefined,
-        };
-      });
+      const unavailableCartItems: CartItem[] = unavailableProducts.map(
+        (product) => {
+          const quantity = cartItems[product.id.toString()] || 0;
+          const unitPrice = product.price?.price || 0;
+
+          return {
+            id: `rami-levy-${product.id}-unavailable`,
+            productId: product.id.toString(),
+            productTitle: `❌ ${product.gs?.name || product.name} (Not available in store ${storeId})`,
+            quantity,
+            unitPrice,
+            totalPrice: 0, // Set to 0 since it can't be purchased
+            imageUrl: product.images?.small
+              ? `https://www.rami-levy.co.il${product.images.small}`
+              : undefined,
+          };
+        }
+      );
 
       // Combine both available and unavailable items
-      const cartItemsResult: CartItem[] = [...availableCartItems, ...unavailableCartItems];
+      const cartItemsResult: CartItem[] = [
+        ...availableCartItems,
+        ...unavailableCartItems,
+      ];
 
       // Calculate totals (only available items count toward price)
       const totalItems = cartItemsResult.reduce(
