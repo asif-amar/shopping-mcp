@@ -1,16 +1,64 @@
 import { Router } from "express";
-import { generateText, stepCountIs, streamText } from "ai";
+import { generateText, stepCountIs, streamText, convertToModelMessages } from "ai";
 // import { openai } from '@ai-sdk/openai';
 // import { anthropic } from '@ai-sdk/anthropic';
 import { validateStreamRequest } from "../middleware/validation";
-import { StreamRequest } from "../types";
+import { StreamRequest, ChatMessage } from "../types";
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
 
 import { experimental_createMCPClient } from "ai";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp";
 import logger from "../utils/logger";
+import {
+  createUser,
+  getUserBySessionId,
+  createChatSession,
+  getChatSessionById,
+  createMessage,
+  getMessagesBySessionId
+} from "../database/queries";
+
+// Hardcoded constants for demo
+const HARDCODED_USER_SESSION_ID = "demo-user-session";
+const HARDCODED_CHAT_SESSION_ID = "demo-chat-session";
 
 const router = Router();
+
+// Convert database messages to chat message format
+function convertDBMessagesToChat(dbMessages: any[]) {
+  return dbMessages.map(msg => ({
+    role: msg.role as 'user' | 'assistant' | 'system',
+    content: msg.content
+  }));
+}
+
+// Initialize user and chat session
+async function ensureUserAndSession() {
+  try {
+    // Create or get user
+    let user = await getUserBySessionId(HARDCODED_USER_SESSION_ID);
+    if (!user) {
+      user = await createUser({ session_id: HARDCODED_USER_SESSION_ID });
+      logger.info(`Created demo user: ${user.id}`);
+    }
+
+    // Create or get chat session
+    let chatSession = await getChatSessionById(1); // Assume first session for demo
+    if (!chatSession) {
+      chatSession = await createChatSession({
+        user_id: user.id,
+        session_id: HARDCODED_CHAT_SESSION_ID,
+        title: "Demo Chat Session"
+      });
+      logger.info(`Created demo chat session: ${chatSession.id}`);
+    }
+
+    return { user, chatSession };
+  } catch (error) {
+    logger.error(`Failed to initialize user/session: ${error instanceof Error ? error.message : String(error)}`);
+    throw error;
+  }
+}
 
 router.post("/stream", validateStreamRequest, async (req, res) => {
   try {
@@ -22,6 +70,28 @@ router.post("/stream", validateStreamRequest, async (req, res) => {
     }: StreamRequest = req.body;
     
     logger.info(`Stream endpoint called: /stream (${messages.length} messages)`);
+
+    // Initialize user and chat session
+    const { chatSession } = await ensureUserAndSession();
+
+    // Store user message to database
+    const lastMessage = messages[messages.length - 1];
+    if (lastMessage && lastMessage.role === 'user') {
+      await createMessage({
+        chat_session_id: chatSession.id,
+        role: lastMessage.role,
+        content: lastMessage.content,
+        model: "gemini-2.0-flash-exp",
+        temperature
+      });
+      logger.info(`Stored user message to database`);
+    }
+
+    // Load full conversation history from database
+    const dbMessages = await getMessagesBySessionId(chatSession.id);
+    const conversationHistory = convertDBMessagesToChat(dbMessages);
+    
+    logger.info(`Loaded ${conversationHistory.length} messages from database for context`);
 
     const google = createGoogleGenerativeAI({
       apiKey: process.env.GEMINI_API_KEY,
@@ -47,37 +117,54 @@ router.post("/stream", validateStreamRequest, async (req, res) => {
       model: google("gemini-2.0-flash-exp"),
       tools,
       stopWhen: stepCountIs(5),
-      messages: messages.map((msg) => ({
+      messages: conversationHistory.map(msg => ({
         role: msg.role,
-        content: msg.content,
+        content: msg.content
       })),
       temperature,
     });
 
     logger.info(`Starting streaming response with gemini-2.0-flash-exp (temp: ${temperature})`);
 
-    res.writeHead(200, {
-      "Content-Type": "text/plain; charset=utf-8",
-      "Transfer-Encoding": "chunked",
-      "Cache-Control": "no-cache",
-      Connection: "keep-alive",
+    return result.toUIMessageStreamResponse({
+      originalMessages: conversationHistory.map(msg => ({
+        id: `msg-${Date.now()}-${Math.random()}`,
+        role: msg.role,
+        content: msg.content,
+        parts: [{ type: 'text', text: msg.content }]
+      })),
+      onFinish: async ({ messages: finalMessages }) => {
+        try {
+          // Store assistant response to database
+          const assistantMessage = finalMessages[finalMessages.length - 1];
+          if (assistantMessage && assistantMessage.role === 'assistant') {
+            const content = assistantMessage.parts
+              ?.map(part => part.type === 'text' ? part.text : '')
+              .join('') || '';
+            
+            await createMessage({
+              chat_session_id: chatSession.id,
+              role: 'assistant',
+              content,
+              model: "gemini-2.0-flash-exp",
+              temperature
+            });
+            logger.info(`Stored assistant message to database`);
+          }
+        } catch (dbError) {
+          logger.error(`Failed to store assistant message: ${dbError instanceof Error ? dbError.message : String(dbError)}`);
+        }
+      }
     });
 
-    for await (const textPart of result.textStream) {
-      res.write(textPart);
-    }
-
-    res.end();
   } catch (error) {
     logger.error(`Streaming error: ${error instanceof Error ? error.message : String(error)}`);
-
+    
     if (!res.headersSent) {
-      res.status(500).json({
+      return res.status(500).json({
         error: "Failed to stream response",
         message: error instanceof Error ? error.message : "Unknown error",
       });
-    } else {
-      res.end();
     }
   }
 });
@@ -92,6 +179,28 @@ router.post("/complete", validateStreamRequest, async (req, res) => {
     }: StreamRequest = req.body;
 
     logger.info(`Complete endpoint called: /complete (${messages.length} messages)`);
+
+    // Initialize user and chat session
+    const { chatSession } = await ensureUserAndSession();
+
+    // Store user message to database
+    const lastMessage = messages[messages.length - 1];
+    if (lastMessage && lastMessage.role === 'user') {
+      await createMessage({
+        chat_session_id: chatSession.id,
+        role: lastMessage.role,
+        content: lastMessage.content,
+        model: "gemini-2.0-flash-exp",
+        temperature
+      });
+      logger.info(`Stored user message to database`);
+    }
+
+    // Load full conversation history from database
+    const dbMessages = await getMessagesBySessionId(chatSession.id);
+    const conversationHistory = convertDBMessagesToChat(dbMessages);
+    
+    logger.info(`Loaded ${conversationHistory.length} messages from database for context`);
 
     const google = createGoogleGenerativeAI({
       apiKey: process.env.GEMINI_API_KEY,
@@ -116,7 +225,7 @@ router.post("/complete", validateStreamRequest, async (req, res) => {
     const result = await generateText({
       model: google("gemini-2.0-flash-exp"),
       tools,
-      messages: messages.map((msg) => ({
+      messages: conversationHistory.map((msg) => ({
         role: msg.role,
         content: msg.content,
       })),
@@ -128,10 +237,24 @@ router.post("/complete", validateStreamRequest, async (req, res) => {
     
     logger.info(`Text generation completed (${fullText.length} characters)`);
 
+    // Store assistant response to database
+    const assistantMessageDB = await createMessage({
+      chat_session_id: chatSession.id,
+      role: 'assistant',
+      content: fullText,
+      model: "gemini-2.0-flash-exp",
+      temperature
+    });
+    logger.info(`Stored assistant message to database`);
+
     res.json({
       message: {
+        id: assistantMessageDB.id,
         role: "assistant",
         content: fullText,
+        model: "gemini-2.0-flash-exp",
+        temperature,
+        created_at: assistantMessageDB.created_at
       },
     });
   } catch (error) {
