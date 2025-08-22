@@ -3,6 +3,7 @@ import helmet from 'helmet';
 import dotenv from 'dotenv';
 import { corsOptions } from './middleware/cors';
 import chatRoutes from './routes/chat';
+import logger from './utils/logger';
 
 dotenv.config();
 
@@ -20,7 +21,7 @@ app.get('/health', (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`🚀 Server running on port ${PORT}`);
-  console.log(`📡 Health check: http://localhost:${PORT}/health`);
-  console.log(`💬 Chat endpoint: http://localhost:${PORT}/api/chat/stream`);
+  logger.info(`Server started successfully on port ${PORT} (${process.env.NODE_ENV || 'development'})`);
+  logger.info(`Health check available at: http://localhost:${PORT}/health`);
+  logger.info(`Chat endpoint available at: http://localhost:${PORT}/api/chat/stream`);
 });

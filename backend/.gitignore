@@ -29,7 +29,7 @@ coverage/
 .nyc_output
 
 # Logs
-logs
+logs/
 *.log
 
 # Editor directories and files
